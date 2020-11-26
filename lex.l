@@ -71,7 +71,7 @@ void Print_HexToInt(int token);
 void Print_BinToInt(int token);
 void Print_DecInt(int token);
 void Print_DecReal(int token);
-void myatof(int token, int b);
+void Print_BinRealToInt(int token);
 
 %}
 
@@ -219,16 +219,16 @@ ASCII               		[ -~]
 
 
 
-(0B(\.)00*1[01]*)|(0B(\.)1[01]*)|(0B1[01]*(\.)1[01]*)|(0B1[01]*(\.)00*1[01]*)	{myatof(T_RCONST, 2); return T_RCONST;}
-(0H(\.){HEX1}{HEX}*)|(0H(\.)00*{HEX1}{HEX}*)									{myatof(T_RCONST, 16); return T_RCONST;}
+(0B(\.)00*1[01]*)|(0B(\.)1[01]*)|(0B1[01]*(\.)1[01]*)|(0B1[01]*(\.)00*1[01]*)	{Print_BinRealToInt(T_RCONST); return T_RCONST;}
+(0H(\.){HEX1}{HEX}*)|(0H(\.)00*{HEX1}{HEX}*)									{Print_String(T_RCONST); return T_RCONST;}
 (({DIGIT1}{DIGIT}*)|0)?(\.)(00*)?{DIGIT1}{DIGIT}*({EXPONENT})?					{Print_String(T_RCONST); return T_RCONST;}
-{DIGIT1}{DIGIT}*({EXPONENT})													{Print_String(T_RCONST); return T_RCONST;}
+{DIGIT1}{DIGIT}*({EXPONENT})													{Print_DecInt(T_RCONST); return T_RCONST;}
 (0H{HEX1}{HEX}*(\.){HEX1}{HEX}*)												{Print_String(T_RCONST); return T_RCONST;}
 (0H{HEX1}{HEX}*(\.)0[0]*{HEX1}{HEX}*)											{Print_String(T_RCONST); return T_RCONST;}
 0B1[01]*\.0 | 0B1[01]*\.00*1[01]*												{Print_String(T_RCONST); return T_RCONST;}
 0H{HEX1}{HEX}*\.0 | 0H{HEX1}{HEX}*\.00*{HEX1}{HEX}*								{Print_String(T_RCONST); return T_RCONST;}
 (0B(\.)0)|(0H(\.)0)|({DIGIT1}{DIGIT}*(\.)0)										{Print_String(T_RCONST); return T_RCONST;}
-(({DIGIT1}{DIGIT}*)|0)?(\.)0{EXPONENT}?											{Print_String(T_RCONST); return T_RCONST;}
+(({DIGIT1}{DIGIT}*)|0)?(\.)0{EXPONENT}?											{Print_DecReal(T_RCONST); return T_RCONST;}
 
 \n											{lineno++;}
 {WHITESPACE}                                            {}
@@ -289,8 +289,8 @@ void Print_BinToInt(int token) {
 }
 
 void Print_DecInt(int token) {
-	int res = atoi(yytext);
-	printf("TOKEN FOUND: %d | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
+	double res = strtod(yytext,NULL);
+	printf("TOKEN FOUND: %f | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
 }
 
 void Print_DecReal(int token) {
@@ -298,22 +298,22 @@ void Print_DecReal(int token) {
 	printf("TOKEN FOUND: %f | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
 }
 
-void myatof(int token, int b)
+void Print_BinRealToInt(int token)
 {
     const char *p;
     double ret = 0;
     for(p = &yytext[2]; *p != '\0' && isspace(*p); p++)
         ;
     for(; *p != '\0' && isdigit(*p); p++)
-        ret = b * ret + (*p - '0');
+        ret = 2 * ret + (*p - '0');
 
     if(*p == '.')
         {
-        double fac = b;
+        double fac = 2;
         for(p++; *p != '\0' && isdigit(*p); p++)
             {
             ret += (*p - '0') / fac;
-            fac *= b;
+            fac *= 2;
             }
         }
 	printf("TOKEN FOUND: %f | TOKEN NUMBER: %d | LINE: %d\n\n", ret, token, lineno);
