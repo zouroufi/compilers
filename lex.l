@@ -230,16 +230,6 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
-/*int main(int argc, char *argv[]) {
-	int token;
-	
-	do {
-		token = yylex();
-	} while (token != T_EOF);
-	
-	return 0;
-}*/
-
 void yyerror (const char msg[]) {                           //Otan brei ena error stamataei. Tha emploutistei na sumbadizei me tis apaithseis tou project
 	fprintf(stderr, "ERROR, line %d: %s\n", lineno, msg);
 	exit(1);
@@ -271,19 +261,20 @@ void Print_DecReal(int token) {
 
 void Print_BinRealToInt(int token) {
 	const char *p;
-	double ret = 0;
+	double num = 0;
+	
     for(p = &yytext[2]; *p != '\0' && isspace(*p); p++);
 	for(; *p != '\0' && isdigit(*p); p++)
-		ret = 2 * ret + (*p - '0');
+		num = 2 * num + (*p - '0');
 
 	if(*p == '.') {
 		double fac = 2;
 		for(p++; *p != '\0' && isdigit(*p); p++) {
-			ret += (*p - '0') / fac;
+			num += (*p - '0') / fac;
 			fac *= 2;
 		}
 	}
-	printf("TOKEN: %f | TOKEN ID: %d | LINE: %d\n\n", ret, token, lineno);
+	printf("TOKEN: %f | TOKEN ID: %d | LINE: %d\n\n", num, token, lineno);
 }
 
 //todo beltiwsh ths sunarthshs gia perissotera dekadika psifia
