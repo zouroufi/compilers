@@ -99,7 +99,7 @@ HEX							[0-9A-F]
 HEX1						[1-9A-F]
 ALPHANUM					[A-Za-z0-9]
 ALPHANUM_UNDSCOR			[A-Za-z0-9_]
-ASCII               		[ -~]
+ASCII						[ -~]
 
 %%
 
@@ -112,7 +112,7 @@ ASCII               		[ -~]
 "RECORD"															{Print_String(T_RECORD); return T_RECORD;}
 "VAR"																{Print_String(T_VAR); return T_VAR;}
 "FORWARD"															{Print_String(T_FORWARD); return T_FORWARD;}
-"FUNCTION"  														{Print_String(T_FUNCTION); return T_FUNCTION;}
+"FUNCTION"															{Print_String(T_FUNCTION); return T_FUNCTION;}
 "PROCEDURE"															{Print_String(T_PROCEDURE); return T_PROCEDURE;}
 "IN"																{Print_String(T_INOP); return T_INOP;}
 "INTEGER"															{Print_String(T_INTEGER); return T_INTEGER;}
@@ -139,7 +139,7 @@ ASCII               		[ -~]
 ">"|">="|"<"|"<="|"<>"												{Print_String(T_RELOP); return T_RELOP;}
 "+"|"-"																{Print_String(T_ADDOP); return T_ADDOP;}
 "*"|"/"|"DIV"|"MOD"|"AND"											{Print_String(T_MULDIVANDOP); return T_MULDIVANDOP;}
-"(" 																{Print_String(T_LPAREN); return T_LPAREN;}
+"("																	{Print_String(T_LPAREN); return T_LPAREN;}
 ")"																	{Print_String(T_RPAREN); return T_RPAREN;}
 ";"																	{Print_String(T_SEMI); return T_SEMI;}
 "."																	{Print_String(T_DOT); return T_DOT;}
