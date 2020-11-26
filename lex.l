@@ -1,4 +1,3 @@
-/*edw mpainei o kwdikas c*/
 
 %{
 
@@ -62,10 +61,14 @@
 #define T_ID			50
 #define T_STRING		51
 
+#define MAX_STR_LENGTH 255
+char string_buf[MAX_STR_LENGTH];
+char *string_buf_ptr;
+int i=0;
 
 int lineno = 1;
 
-void yyerror (const char msg[]);
+void yyerror(const char msg[]);
 void Print_String(int token_id);
 void Print_HexToInt(int token);
 void Print_BinToInt(int token);
@@ -78,7 +81,7 @@ void Print_BinRealToInt(int token);
 %option noyywrap
 %option case-insensitive
 %x COMMENT 
-%x STRING
+%x str
 
 /* mnimonika onomata (under construction) */
 LETTER						[a-zA-Z]
@@ -99,117 +102,87 @@ ASCII               		[ -~]
 %%
 
 "PROGRAM" 									{Print_String(T_PROGRAM); return T_PROGRAM;}
-
 "CONST"										{Print_String(T_CONST); return T_CONST;}
-
 "TYPE"										{Print_String(T_TYPE); return T_TYPE;}
-
 "ARRAY"										{Print_String(T_ARRAY); return T_ARRAY;}
-
 "SET"										{Print_String(T_SET); return T_SET;}
-
 "OF"										{Print_String(T_OF); return T_OF;}
-
 "RECORD"									{Print_String(T_RECORD); return T_RECORD;}
-
 "VAR"										{Print_String(T_VAR); return T_VAR;}
-
 "FORWARD"									{Print_String(T_FORWARD); return T_FORWARD;}
-
 "FUNCTION"  								{Print_String(T_FUNCTION); return T_FUNCTION;}
-
 "PROCEDURE"									{Print_String(T_PROCEDURE); return T_PROCEDURE;}
-
+"IN"										{Print_String(T_INOP); return T_INOP;}
 "INTEGER"									{Print_String(T_INTEGER); return T_INTEGER;}
-
 "REAL"										{Print_String(T_REAL); return T_REAL;}
-
 "BOOLEAN"									{Print_String(T_BOOLEAN); return T_BOOLEAN;}
-
-
 "CHAR"										{Print_String(T_CHAR); return T_CHAR;}
-
 "BEGIN"										{Print_String(T_BEGIN); return T_BEGIN;}
-
 "END"										{Print_String(T_END); return T_END;}
-
 "IF"										{Print_String(T_IF); return T_IF;}
-
 "THEN"										{Print_String(T_THEN); return T_THEN;}
-
 "ELSE"										{Print_String(T_ELSE); return T_ELSE;}
-
 "WHILE"	 									{Print_String(T_WHILE); return T_WHILE;}
-
 "DO"										{Print_String(T_DO); return T_DO;}
-
 "FOR"										{Print_String(T_FOR); return T_FOR;}
-
 "DOWNTO"									{Print_String(T_DOWNTO); return T_DOWNTO;}
-
 "TO"										{Print_String(T_TO); return T_TO;}
-
 "WITH"										{Print_String(T_WITH); return T_WITH;}
-
 "READ"										{Print_String(T_READ); return T_READ;}
-
 "WRITE"										{Print_String(T_WRITE); return T_WRITE;}
 
-
 "TRUE" | "FALSE"							{Print_String(T_BCONST); return T_BCONST);}
-
-">"|">="|"<"|"<="|"<>"						{Print_String(T_RELOP); return T_RELOP;}
-
-
-"+"|"-"										{Print_String(T_ADDOP); return T_ADDOP;}
-
 "OR"										{Print_String(T_OROP); return T_OROP;}
-
-"*"|"/"|"DIV"|"MOD"|"AND"					{Print_String(T_MULDIVANDOP); return T_MULDIVANDOP;}
-
 "NOT"										{Print_String(T_NOTOP); return T_NOTOP;}
-
-"IN"										{Print_String(T_INOP); return T_INOP;}
-
-
+">"|">="|"<"|"<="|"<>"						{Print_String(T_RELOP); return T_RELOP;}
+"+"|"-"										{Print_String(T_ADDOP); return T_ADDOP;}
+"*"|"/"|"DIV"|"MOD"|"AND"					{Print_String(T_MULDIVANDOP); return T_MULDIVANDOP;}
 "(" 										{Print_String(T_LPAREN); return T_LPAREN;}
-
 ")"											{Print_String(T_RPAREN); return T_RPAREN;}
-
 ";"											{Print_String(T_SEMI); return T_SEMI;}
-
 "."											{Print_String(T_DOT); return T_DOT;}
-
 ","											{Print_String(T_COMMA); return T_COMMA;}
-
 "="											{Print_String(T_EQU); return T_EQU;}
-
 ":"											{Print_String(T_COLON); return T_COLON;}
-
 "["											{Print_String(T_LBRACK); return T_LBRACK;}
-
 "]"											{Print_String(T_RBRACK); return T_RBRACK;}
-
 ":="										{Print_String(T_ASSIGN); return T_ASSIGN;}
-
 ".."										{Print_String(T_DOTDOT); return T_DOTDOT;}
 
 <INITIAL><<EOF>>							{Print_String(T_EOF); return T_EOF;}
+"{"											 BEGIN(COMMENT);
+\"											{string_buf_ptr = string_buf; BEGIN(str);}
 
-
-
-"{"											BEGIN(COMMENT);
 <COMMENT>[^}\n]+							;
 <COMMENT>\n									{lineno++;}
-<COMMENT><<EOF>>							{}
+<COMMENT><<EOF>>							{}      // todo this is an error, we need to handle it
 <COMMENT>"}"								BEGIN(INITIAL);
 
+  
+<str>\n										{   yyerror("Unterminated String"); }
+<str>\\n									{   *string_buf_ptr++ = '\n';       }
+<str>\\t									{   *string_buf_ptr++ = '\t';       }
+<str>\\r									{   *string_buf_ptr++ = '\r';       }
+<str>\\b									{   *string_buf_ptr++ = '\b';       }
+<str>\\v									{   *string_buf_ptr++ = '\v';       }
+<str>\\f									{   *string_buf_ptr++ = '\f';       }
+<str>\\\n									{   /* error_string();*/ lineno++;  }
+<str>\\(.)									{   *string_buf_ptr++ = yytext[1];  }
+<str>[^\\\n\"]+								{   char *yptr = yytext;
+											    while ( *yptr )
+                                                    *string_buf_ptr++ = *yptr++;
+                                            }
+<str><<EOF>>								{   yyerror("Unterminated String"); yyterminate();}
+<str>\"										{   BEGIN(INITIAL); *string_buf_ptr = '\0';
+											    printf("[STRING FOUND: \"%s\"    ", string_buf);
+                                                printf("| TOKEN NUMBER: %2d    ", T_STRING);
+                                                printf("| LINE: %2d]\n", T_STRING, lineno);
+                                            }                                              
+
+
+
 \'{ASCII}\'                 				{Print_String(T_CCONST); return T_CCONST;}
-
-
 \'\\[nftrbv]\'								{Print_String(T_CCONST); return T_CCONST;}
-
-(\"{ASCII}*\")|(\"{ASCII}*\\\n{ASCII}*\")		{Print_String(T_STRING); return T_STRING;}
 
 (_)?{LETTER}({ALPHANUM_UNDSCOR}*{ALPHANUM})*  	{Print_String(T_ID); return T_ID;}
 
@@ -217,18 +190,16 @@ ASCII               		[ -~]
 (0B)1[01]*										{Print_BinToInt(T_ICONST); return T_ICONST;}			
 (0H)({HEX1}{HEX}*)								{Print_HexToInt(T_ICONST); return T_ICONST;}
 
-
-
 (0B(\.)00*1[01]*)|(0B(\.)1[01]*)|(0B1[01]*(\.)1[01]*)|(0B1[01]*(\.)00*1[01]*)	{Print_BinRealToInt(T_RCONST); return T_RCONST;}
+0B1[01]*\.0 | 0B1[01]*\.00*1[01]*												{Print_String(T_RCONST); return T_RCONST;}
+(0B(\.)0)|(0H(\.)0)|({DIGIT1}{DIGIT}*(\.)0)										{Print_String(T_RCONST); return T_RCONST;}
 (0H(\.){HEX1}{HEX}*)|(0H(\.)00*{HEX1}{HEX}*)									{Print_String(T_RCONST); return T_RCONST;}
-(({DIGIT1}{DIGIT}*)|0)?(\.)(00*)?{DIGIT1}{DIGIT}*({EXPONENT})?					{Print_String(T_RCONST); return T_RCONST;}
-{DIGIT1}{DIGIT}*({EXPONENT})													{Print_DecInt(T_RCONST); return T_RCONST;}
 (0H{HEX1}{HEX}*(\.){HEX1}{HEX}*)												{Print_String(T_RCONST); return T_RCONST;}
 (0H{HEX1}{HEX}*(\.)0[0]*{HEX1}{HEX}*)											{Print_String(T_RCONST); return T_RCONST;}
-0B1[01]*\.0 | 0B1[01]*\.00*1[01]*												{Print_String(T_RCONST); return T_RCONST;}
 0H{HEX1}{HEX}*\.0 | 0H{HEX1}{HEX}*\.00*{HEX1}{HEX}*								{Print_String(T_RCONST); return T_RCONST;}
-(0B(\.)0)|(0H(\.)0)|({DIGIT1}{DIGIT}*(\.)0)										{Print_String(T_RCONST); return T_RCONST;}
+(({DIGIT1}{DIGIT}*)|0)?(\.)(00*)?{DIGIT1}{DIGIT}*({EXPONENT})?					{Print_String(T_RCONST); return T_RCONST;}
 (({DIGIT1}{DIGIT}*)|0)?(\.)0{EXPONENT}?											{Print_DecReal(T_RCONST); return T_RCONST;}
+{DIGIT1}{DIGIT}*({EXPONENT})													{Print_DecInt(T_RCONST); return T_RCONST;}
 
 \n											{lineno++;}
 {WHITESPACE}                                            {}
@@ -238,7 +209,6 @@ ASCII               		[ -~]
 
 %%
 /*int main(int argc, char *argv[]) {
-
    if(argc > 1){                     //Διαβάζει αρχείο προς μετάφραση
 	yyin == fopen(argv[1], "r");
 	if(yyin == NULL){
@@ -246,7 +216,6 @@ ASCII               		[ -~]
 		return -1;
 	}
    } 
-
 	int token;
 	
 	do {
@@ -255,7 +224,6 @@ ASCII               		[ -~]
 	
     fclose(yyin);              //Κλείνει το αρχείο και ο ΛΑ
 	yyterminate();
-
 	return 0;
 }*/
 
