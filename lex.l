@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
 
 #define T_EOF			0
 #define T_PROGRAM		1
@@ -59,13 +60,19 @@
 #define T_ICONST		48
 #define T_RCONST		49
 #define T_ID			50
+#define T_STRING		51
 
 
 int lineno = 1;
-extern yylval;
 
-void ERROR (const char msg []);
+void yyerror (const char msg[]);
 void Print_String(int token_id);
+void Print_HexToInt(int token);
+void Print_BinToInt(int token);
+void Print_DecInt(int token);
+void Print_DecReal(int token);
+void myatof(int token, int b);
+
 %}
 
 %option noyywrap
@@ -74,17 +81,20 @@ void Print_String(int token_id);
 %x STRING
 
 /* mnimonika onomata (under construction) */
-L											[a-zA-Z]
-E											[Ee]
-D											[0-9]
-D1											[1-9]
-W											[ \t]
+LETTER						[a-zA-Z]
+DIGIT						[0-9]
+DIGIT1						[1-9]
+WHITESPACE					[ \t]
+NEWLINE						[\n]
+BACKSLASH					[\\]
 
-EXP 										E[+-]?(0|{D1}{D}*)
-HEX											[0-9A-F]
-ALPHANUM									[A-Za-z0-9]
-ALL											[A-Za-z0-9_]
-ASCII               						[ !"#$%&'()*+,-./:;<=>?@\[\\\]^_`{|}~]
+
+EXPONENT					E[+-]?(0|{DIGIT1}{DIGIT}*)
+HEX							[0-9A-F]
+HEX1						[1-9A-F]
+ALPHANUM					[A-Za-z0-9]
+ALPHANUM_UNDSCOR			[A-Za-z0-9_]
+ASCII               		[ -~]
 
 %%
 
@@ -196,30 +206,57 @@ ASCII               						[ !"#$%&'()*+,-./:;<=>?@\[\\\]^_`{|}~]
 
 \'{ASCII}\'                 				{Print_String(T_CCONST); return T_CCONST;}
 
-\'{ALPHANUM}\'              				{Print_String(T_CCONST); return T_CCONST;}
 
 \'\\[nftrbv]\'								{Print_String(T_CCONST); return T_CCONST;}
 
-(_)?[a-zA-Z]([a-zA-Z0-9_]*[a-zA-Z0-9])* 	{Print_String(T_ID); return T_ID;}
+(\"{ASCII}*\")|(\"{ASCII}*\\\n{ASCII}*\")		{Print_String(T_STRING); return T_STRING;}
+
+(_)?{LETTER}({ALPHANUM_UNDSCOR}*{ALPHANUM})*  	{Print_String(T_ID); return T_ID;}
+
+0|{DIGIT1}{DIGIT}*								{Print_DecInt(T_ICONST); return T_ICONST;}
+(0B)1[01]*										{Print_BinToInt(T_ICONST); return T_ICONST;}			
+(0H)({HEX1}{HEX}*)								{Print_HexToInt(T_ICONST); return T_ICONST;}
 
 
-0|[1-9][0-9]*								{Print_String(T_ICONST); return T_ICONST;}
 
-(0B)1[01]*									{Print_String(T_ICONST); return T_ICONST;}
-
-			
-(0H)([1-9A-F][0-9A-F]*)						{Print_String(T_ICONST); return T_ICONST;}
-
-
-(0|[1-9][0-9]*)?(\.)(0|0*[1-9][0-9]*)		{Print_String(T_RCONST); return T_RCONST;}
+(0B(\.)00*1[01]*)|(0B(\.)1[01]*)|(0B1[01]*(\.)1[01]*)|(0B1[01]*(\.)00*1[01]*)	{myatof(T_RCONST, 2); return T_RCONST;}
+(0H(\.){HEX1}{HEX}*)|(0H(\.)00*{HEX1}{HEX}*)									{myatof(T_RCONST, 16); return T_RCONST;}
+(({DIGIT1}{DIGIT}*)|0)?(\.)(00*)?{DIGIT1}{DIGIT}*({EXPONENT})?					{Print_String(T_RCONST); return T_RCONST;}
+{DIGIT1}{DIGIT}*({EXPONENT})													{Print_String(T_RCONST); return T_RCONST;}
+(0H{HEX1}{HEX}*(\.){HEX1}{HEX}*)												{Print_String(T_RCONST); return T_RCONST;}
+(0H{HEX1}{HEX}*(\.)0[0]*{HEX1}{HEX}*)											{Print_String(T_RCONST); return T_RCONST;}
+0B1[01]*\.0 | 0B1[01]*\.00*1[01]*												{Print_String(T_RCONST); return T_RCONST;}
+0H{HEX1}{HEX}*\.0 | 0H{HEX1}{HEX}*\.00*{HEX1}{HEX}*								{Print_String(T_RCONST); return T_RCONST;}
+(0B(\.)0)|(0H(\.)0)|({DIGIT1}{DIGIT}*(\.)0)										{Print_String(T_RCONST); return T_RCONST;}
+(({DIGIT1}{DIGIT}*)|0)?(\.)0{EXPONENT}?											{Print_String(T_RCONST); return T_RCONST;}
 
 \n											{lineno++;}
-											
+{WHITESPACE}                                            {}
+.										yyerror("Illegal input");
+	
 
 
 %%
+/*int main(int argc, char *argv[]) {
+   if(argc > 1){                     //Διαβάζει αρχείο προς μετάφραση
+	yyin == fopen(argv[1], "r");
+	if(yyin == NULL){
+		perror("Error opening file");
+		return -1;
+	}
+   } 
+	int token;
+	
+	do {
+		token = yylex();
+	} while (token != T_EOF);
+	
+    fclose(yyin);              //Κλείνει το αρχείο και ο ΛΑ
+	yyterminate();
+	return 0;
+}*/
 
-int main() {
+int main(int argc, char *argv[]) {
 	int token;
 	
 	do {
@@ -229,30 +266,53 @@ int main() {
 	return 0;
 }
 
-void ERROR (const char msg[]) {
+void yyerror (const char msg[]) {
 	fprintf(stderr, "ERROR, line %d: %s\n", lineno, msg);
 	exit(1);
 }
 
 void Print_String(int token) {
-    //if(FLEX_DEBUG && SHOW_TOKENS){
-        printf("TOKEN FOUND: %s | TOKEN NUMBER: %d | LINE: %d\n\n", yytext, token, lineno);
-    //}    
+        printf("TOKEN FOUND: %s | TOKEN NUMBER: %d | LINE: %d\n\n", yytext, token, lineno);    
 }
 
-int HexToInt(char *str){
-    return (int) strtol(&str[2], NULL, 16);
+void Print_HexToInt(int token) {
+    int res = (int) strtol(&yytext[2], NULL, 16);
+	printf("TOKEN FOUND: %d | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
 }
 
-int BinToInt(char *str){
-    return (int) strtol(&str[2], NULL, 2);
+void Print_BinToInt(int token) {
+    int res = (int) strtol(&yytext[2], NULL, 2);
+	printf("TOKEN FOUND: %d | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
 }
 
-int DecInt(char *str) {
-	return atoi(str);
+void Print_DecInt(int token) {
+	int res = atoi(yytext);
+	printf("TOKEN FOUND: %d | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
 }
 
-double DecReal(char *str) {
-	return atof(str);
+void Print_DecReal(int token) {
+	double res = atof(yytext);
+	printf("TOKEN FOUND: %f | TOKEN NUMBER: %d | LINE: %d\n\n", res, token, lineno);
 }
 
+void myatof(int token, int b)
+{
+    const char *p;
+    double ret = 0;
+    for(p = &yytext[2]; *p != '\0' && isspace(*p); p++)
+        ;
+    for(; *p != '\0' && isdigit(*p); p++)
+        ret = b * ret + (*p - '0');
+
+    if(*p == '.')
+        {
+        double fac = b;
+        for(p++; *p != '\0' && isdigit(*p); p++)
+            {
+            ret += (*p - '0') / fac;
+            fac *= b;
+            }
+        }
+	printf("TOKEN FOUND: %f | TOKEN NUMBER: %d | LINE: %d\n\n", ret, token, lineno);
+    //return ret;
+}
